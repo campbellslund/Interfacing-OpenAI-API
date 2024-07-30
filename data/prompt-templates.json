@@ -1,0 +1,8 @@
+{
+    "prompts": [
+      {
+        "id": "default",
+        "content": "Answer or respond to the following query to the best of your ability. User query: {}. Return your answer as a python dict in the following format: {{\"query\": the given user query, \"response\": your response to the user query}}"
+      }
+    ]
+  }
