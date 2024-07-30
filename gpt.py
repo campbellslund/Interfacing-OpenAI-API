@@ -9,39 +9,22 @@ from dotenv import load_dotenv
 
 class GPT(object):
     """
-    This class provides an interface to the OpenAI API to perform text generation tasks using various GPT models. 
-    It allows for synchronous and asynchronous interactions with the API to generate responses for a given prompt 
-    using specified model parameters. The class is designed to handle multiple prompt configurations and includes 
-    methods to load environment variables, handle API authentication, and process batches of prompts for efficiency.
-    
-    Attributes:
-        language_code (str): Language of the prompts to be used, default is English ('en').
-        model (str): Identifier for the OpenAI GPT model to be used.
-        prompt_id (str): Identifier for the specific prompt configuration loaded from JSON.
-        SYSTEM_PROMPT (str): Default system prompt defining the role of the assistant.
-        USER_PROMPT_1 (str): First user prompt to initiate the conversation.
-        ASSISTANT_PROMPT_1 (str): Assistant's initial response in the conversation flow.
-        GUIDELINES_PROMPT_TEMPLATE (str): Loaded guidelines prompt for guiding the assistant's responses.
+
     """
     def __init__(self, 
                  language='en',
-                 model='gpt-3.5-turbo',
-                 prompt='scraping-policy'):
+                 model='gpt-4o',
+                 prompt='default'):
     
         self.load_API_key()
         self.language_code = language
         self.model = model
         self.prompt_id = prompt
 
+        self.SYSTEM_PROMPT = "You are an intelligent assistant." # this is where you can put specific instrustions for how you would like GPT to behave (ex. 'You are a legal assistant designed to...')
         self.USER_PROMPT_1 = "Are you clear about your role?"
-        if 'system-prompt' in self.prompt_id:
-            self.SYSTEM_PROMPT = self.load_prompt_from_json()
-            self.ASSISTANT_PROMPT_1 = "Yes, and I understand to return only a dictionary with my verdict and exact text from the TOS document as evidence. I will not add any other explanation. Please go ahead and provide me with the TOS document." 
-            self.GUIDELINES_PROMPT_TEMPLATE = "Here is the TOS document: {}"
-        else:
-            self.SYSTEM_PROMPT = "You are a smart and intelligent legal assistant. I will provide you with the Terms of Use/Service document for a website and you will answer legal questions about that document."
-            self.ASSISTANT_PROMPT_1 = "Sure, I'm ready to help you with your task. Please provide me with the necessary information to get started."
-            self.GUIDELINES_PROMPT_TEMPLATE = self.load_prompt_from_json()
+        self.ASSISTANT_PROMPT_1 = "Sure, I'm ready to help you with your task. Please provide me with the necessary information to get started."
+        self.GUIDELINES_PROMPT_TEMPLATE = self.load_prompt_from_json()
 
         self.cache_file_path = 'data/gpt-response-cache.json'
         self.load_cache()
@@ -64,19 +47,19 @@ class GPT(object):
             Other keys supported are: "scraping-policy", "AI-policy", "competing-services", "illicit-content", "type-of-license"
         """
         try:
-            with open('data/prompt_templates.json', 'r') as file:
+            with open('data/prompt-templates.json', 'r') as file:
                 prompts = json.load(file)["prompts"]
                 for prompt in prompts:
                     if prompt["id"] == self.prompt_id:
                         return prompt["content"]
         except FileNotFoundError:
-            print("prompt_templates.json file not found.")
+            print("prompt-templates.json file not found.")
         except json.JSONDecodeError:
             print("Error decoding prompts.json.")
 
-        # return default prompt (scraping-policy) if no specific prompt is found or in case of error
+        # return default prompt ('default') if no specific prompt is found or in case of error
         print(f"Prompt with key '{self.prompt_id}' not found. Using default prompt: 'scraping-policy'.")
-        self.prompt_id = 'scraping-policy'
+        self.prompt_id = 'default'
         return prompts[0]['content']
 
     def load_cache(self):
@@ -186,7 +169,7 @@ class GPT(object):
         tasks = []
 
         for prompt in batch:
-            formatted_prompt = custom_guidelines_prompt.format(prompt) if custom_guidelines_prompt else self.GUIDELINES_PROMPT_TEMPLATE.format(prompt)
+            formatted_prompt = custom_guidelines_prompt.format(prompt) if custom_guidelines_prompt else self.GUIDELINES_PROMPT_TEMPLATE.format(prompt) # this is where the unique query is being inserted into the empty brackets of our prompt template
             cache_id = f"{self.prompt_id}: {formatted_prompt}"
 
             if cache_id in self.cache:
@@ -222,13 +205,13 @@ class GPT(object):
             for i in range(0, len(batch), batch_size):
                 current_batch = batch[i:i + batch_size]
                 batch_prompts = [
-                    item['text'] for item in current_batch  # Remove formatting here
+                    item['text'] for item in current_batch
                 ]
                 batch_responses = await self.process_batch_async(session, batch_prompts)
                 parsed_responses = []
                 for response in batch_responses:
                     try:
-                        parsed_response = json.loads(response)
+                        parsed_response = json.loads(response) # change this if not instructing gpt to return a python dict
                         parsed_responses.append(parsed_response)
                     except json.JSONDecodeError as e:
                         print("Failed to parse response:", response, "Error:", e)  # debugging output
