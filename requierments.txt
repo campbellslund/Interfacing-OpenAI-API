@@ -1,0 +1,7 @@
+asyncio
+pickle
+openai
+aiohttp
+requests
+tiktoken
+python-dotenv
